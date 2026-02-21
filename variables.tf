@@ -45,3 +45,21 @@ variable "node_desired_size" {
   type        = number
   default     = 2
 }
+
+variable "vault_namespace" {
+  description = "Kubernetes namespace to deploy Vault into"
+  type        = string
+  default     = "vault"
+}
+
+variable "vault_replicas" {
+  description = "Number of Vault server replicas (HA mode)"
+  type        = number
+  default     = 3
+}
+
+variable "vault_chart_version" {
+  description = "Version of the HashiCorp Vault Helm chart"
+  type        = string
+  default     = "0.29.1"
+}
