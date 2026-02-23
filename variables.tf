@@ -63,3 +63,15 @@ variable "vault_chart_version" {
   type        = string
   default     = "0.29.1"
 }
+
+variable "vso_namespace" {
+  description = "Kubernetes namespace to deploy the Vault Secrets Operator into"
+  type        = string
+  default     = "vault-secrets-operator"
+}
+
+variable "vso_chart_version" {
+  description = "Version of the Vault Secrets Operator Helm chart"
+  type        = string
+  default     = "0.9.1"
+}
