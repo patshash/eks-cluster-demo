@@ -22,3 +22,13 @@ output "configure_kubectl" {
   description = "Command to configure kubectl"
   value       = "aws eks update-kubeconfig --region ${var.region} --name ${module.eks.cluster_name}"
 }
+
+output "vault_namespace" {
+  description = "Kubernetes namespace where Vault is deployed"
+  value       = kubernetes_namespace.vault.metadata[0].name
+}
+
+output "vault_address" {
+  description = "Command to get the Vault service address"
+  value       = "kubectl get svc -n ${var.vault_namespace} vault -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
+}
