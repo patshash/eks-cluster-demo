@@ -1,9 +1,7 @@
-# Local .terraform directory
-.terraform/
+# Local .terraform directories
+**/.terraform/
 
-# Terraform state files - never commit these
-terraform.tfstate
-terraform.tfstate.backup
+# Terraform state files
 *.tfstate
 *.tfstate.*
 
@@ -13,10 +11,16 @@ crash.*.log
 
 # Sensitive variable files
 *.tfvars.json
-!terraform.tfvars
 
 # Override files
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Terraform plan files
+tfplan
+tfplan_*
+
+# Terraform lock files (regenerated on init)
+.terraform.lock.hcl

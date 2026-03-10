@@ -1,11 +1,3 @@
-data "aws_eks_cluster" "cluster" {
-  name = var.cluster_name
-}
-
-data "aws_eks_cluster_auth" "cluster" {
-  name = var.cluster_name
-}
-
 resource "kubernetes_namespace" "vault" {
   metadata {
     name = var.vault_namespace
@@ -25,7 +17,7 @@ resource "helm_release" "vault" {
 
   set {
     name  = "server.ha.enabled"
-    value = "false"
+    value = "true"
   }
 
   set {
@@ -35,22 +27,12 @@ resource "helm_release" "vault" {
 
   set {
     name  = "server.ha.raft.enabled"
-    value = "false"
+    value = "true"
   }
 
   set {
     name  = "injector.enabled"
     value = "true"
-  }
-
-  set {
-    name  = "server.dataStorage.enabled"
-    value = "false"
-  }
-
-  set {
-    name  = "server.auditStorage.enabled"
-    value = "false"
   }
 
   depends_on = [kubernetes_namespace.vault]
@@ -86,7 +68,6 @@ resource "helm_release" "vault_secrets_operator" {
   depends_on = [kubernetes_namespace.vault_secrets_operator, helm_release.vault]
 }
 
-# Demo namespace for the Vault Secrets Operator example
 resource "kubernetes_namespace" "vso_demo" {
   metadata {
     name = "vso-demo"
@@ -97,7 +78,6 @@ resource "kubernetes_namespace" "vso_demo" {
   }
 }
 
-# Service account used by the demo application and referenced by VaultAuth
 resource "kubernetes_service_account" "vso_demo" {
   metadata {
     name      = "demo-sa"

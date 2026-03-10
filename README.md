@@ -1,6 +1,6 @@
-# EKS Cluster Demo
+# EKS Cluster Demo — Terraform Stacks
 
-Deploys an Amazon EKS cluster in `ap-southeast-2` (Sydney) using Terraform, with HashiCorp Vault and the Vault Secrets Operator (VSO) installed via Helm.
+Deploys an Amazon EKS cluster in `ap-southeast-2` (Sydney) using **Terraform Stacks**, with HashiCorp Vault and the Vault Secrets Operator (VSO) installed via Helm.
 
 ## Architecture
 
@@ -10,29 +10,60 @@ Deploys an Amazon EKS cluster in `ap-southeast-2` (Sydney) using Terraform, with
 - **NAT Gateway** for outbound internet access from private subnets
 - **HashiCorp Vault** deployed in HA mode with Raft integrated storage and the Agent Injector enabled
 - **Vault Secrets Operator (VSO)** deployed to sync Vault secrets natively into Kubernetes Secrets
-- **VSO demo** in the `vso-demo` namespace showing a VaultConnection, VaultAuth, VaultStaticSecret, and a demo deployment consuming the synced secret
+- **VSO demo** in the `vso-demo` namespace with a service account for VaultAuth integration
+
+## Stack Structure
+
+```
+├── tfstack.hcl              # Stack orchestration — providers, components, wiring
+├── tfdeploy.hcl             # Deployment configurations (dev, prod)
+└── components/
+    ├── networking/           # VPC, subnets, NAT gateway
+    ├── eks/                  # EKS cluster, managed node group, cluster auth
+    └── vault/                # Vault (Helm), VSO (Helm), demo namespace
+```
+
+### Component Dependency Graph
+
+```
+networking ──► eks ──► vault
+   (VPC)      (cluster)  (kubernetes/helm workloads)
+```
+
+The Stacks runtime automatically resolves ordering: `networking` deploys first, its VPC/subnet outputs feed into `eks`, and the `kubernetes`/`helm` providers for `vault` depend on the EKS cluster endpoint and auth token.
 
 ## Prerequisites
 
-- [Terraform](https://www.terraform.io/downloads) >= 1.3
-- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials
-- [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- [Helm](https://helm.sh/docs/intro/install/) >= 3.0
+- [HCP Terraform](https://app.terraform.io/) organization with **Stacks** enabled
+- An AWS IAM role configured for [OIDC-based authentication](https://developer.hashicorp.com/terraform/cloud-docs/workspaces/dynamic-provider-credentials/aws-configuration) with your HCP Terraform organization
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) (for post-deploy verification)
 
 ## Usage
 
+### 1. Configure Deployments
+
+Edit `tfdeploy.hcl` and replace the `<REPLACE_WITH_AWS_ROLE_ARN>` placeholders with your IAM role ARN(s).
+
+### 2. Create a Stack in HCP Terraform
+
+1. Navigate to your HCP Terraform organization
+2. Create a new **Stack** linked to this repository
+3. HCP Terraform will detect `tfstack.hcl` and `tfdeploy.hcl` automatically
+
+### 3. Deploy
+
+HCP Terraform will plan and apply the stack deployments. Each deployment (`development`, `production`) is orchestrated independently with its own set of inputs.
+
+### 4. Configure kubectl
+
+After deployment, configure kubectl for your environment:
+
 ```bash
-# Initialize Terraform
-terraform init
+# Development
+aws eks update-kubeconfig --region ap-southeast-2 --name eks-cluster-demo-dev
 
-# Review the plan
-terraform plan
-
-# Deploy the cluster, Vault, and the Vault Secrets Operator
-terraform apply
-
-# Configure kubectl
-aws eks update-kubeconfig --region ap-southeast-2 --name eks-cluster-demo
+# Production
+aws eks update-kubeconfig --region ap-southeast-2 --name eks-cluster-demo-prod
 ```
 
 ## Vault Initialization
@@ -123,36 +154,36 @@ kubectl logs -n vso-demo -l app=vso-demo -f
 
 ## Cleanup
 
-```bash
-terraform destroy
-```
+To destroy resources, trigger a destroy operation on the stack deployment in HCP Terraform, or delete the stack entirely from the HCP Terraform UI.
 
-## Inputs
+## Stack Inputs
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `region` | AWS region | `ap-southeast-2` |
-| `cluster_name` | EKS cluster name | `eks-cluster-demo` |
-| `cluster_version` | Kubernetes version | `1.31` |
-| `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` |
-| `instance_type` | Node instance type | `t3.medium` |
-| `node_min_size` | Min nodes | `1` |
-| `node_max_size` | Max nodes | `3` |
-| `node_desired_size` | Desired nodes | `2` |
-| `vault_namespace` | Kubernetes namespace for Vault | `vault` |
-| `vault_replicas` | Number of Vault HA replicas | `3` |
-| `vault_chart_version` | Vault Helm chart version | `0.29.1` |
-| `vso_namespace` | Kubernetes namespace for the Vault Secrets Operator | `vault-secrets-operator` |
-| `vso_chart_version` | Vault Secrets Operator Helm chart version | `0.9.1` |
+Inputs are provided per-deployment in `tfdeploy.hcl`:
 
-## Outputs
+| Variable | Description | Dev Default | Prod Default |
+|----------|-------------|-------------|--------------|
+| `role_arn` | AWS IAM role ARN for OIDC auth | — | — |
+| `region` | AWS region | `ap-southeast-2` | `ap-southeast-2` |
+| `cluster_name` | EKS cluster name | `eks-cluster-demo-dev` | `eks-cluster-demo-prod` |
+| `cluster_version` | Kubernetes version | `1.31` | `1.31` |
+| `vpc_cidr` | VPC CIDR block | `10.0.0.0/16` | `10.1.0.0/16` |
+| `instance_type` | Node instance type | `t3.medium` | `t3.large` |
+| `node_min_size` | Min nodes | `1` | `2` |
+| `node_max_size` | Max nodes | `3` | `6` |
+| `node_desired_size` | Desired nodes | `2` | `3` |
+| `environment` | Environment label | `development` | `production` |
+| `vault_namespace` | K8s namespace for Vault | `vault` | `vault` |
+| `vault_replicas` | Vault HA replicas | `3` | `5` |
+| `vault_chart_version` | Vault Helm chart version | `0.29.1` | `0.29.1` |
+| `vso_namespace` | K8s namespace for VSO | `vault-secrets-operator` | `vault-secrets-operator` |
+| `vso_chart_version` | VSO Helm chart version | `0.9.1` | `0.9.1` |
+
+## Stack Outputs
 
 | Output | Description |
 |--------|-------------|
 | `cluster_name` | EKS cluster name |
 | `cluster_endpoint` | Cluster API endpoint |
 | `configure_kubectl` | Command to configure kubectl |
-| `vault_namespace` | Kubernetes namespace where Vault is deployed |
-| `vault_address` | Command to get the Vault service address |
-| `vso_namespace` | Kubernetes namespace where the Vault Secrets Operator is deployed |
-| `vso_demo_namespace` | Kubernetes namespace for the VSO demonstration |
+| `vault_namespace` | K8s namespace where Vault is deployed |
+| `vso_namespace` | K8s namespace where VSO is deployed |

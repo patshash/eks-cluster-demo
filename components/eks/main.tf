@@ -5,8 +5,8 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = var.cluster_version
 
-  vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.private_subnets
+  vpc_id     = var.vpc_id
+  subnet_ids = var.subnet_ids
 
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = true
@@ -24,11 +24,14 @@ module "eks" {
     }
   }
 
-  # Allow current caller to admin the cluster
   enable_cluster_creator_admin_permissions = true
 
   tags = {
     Terraform   = "true"
-    Environment = "demo"
+    Environment = var.environment
   }
+}
+
+data "aws_eks_cluster_auth" "this" {
+  name = module.eks.cluster_name
 }
