@@ -21,6 +21,3 @@ override.tf.json
 # Terraform plan files
 tfplan
 tfplan_*
-
-# Terraform lock files (regenerated on init)
-.terraform.lock.hcl
